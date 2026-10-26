@@ -87,6 +87,11 @@
   #capturedImg { width: 100%; border-radius: 10px; display: none; }
   .cam-controls { display: flex; gap: 10px; margin-top: 10px; }
   .cam-controls .btn { flex: 1; }
+  .file-cam { position: relative; overflow: hidden; text-align: center; }
+  .file-cam input[type=file] {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    opacity: 0; font-size: 100px; z-index: 2;
+  }
   .selfie-guide { background: var(--surface2); border: 1.5px dashed var(--border);
     border-radius: 10px; padding: 20px; text-align: center; margin-bottom: 12px; }
   .selfie-guide .icon { font-size: 3rem; }
@@ -188,15 +193,16 @@
       <div class="icon">🤳</div>
       <p>Toma una selfie mirando a la cámara para verificar que eres una persona real. Tu rostro debe ser visible y bien iluminado.</p>
     </div>
-    <video id="videoPreview" autoplay muted playsinline></video>
+    <video id="videoPreview" autoplay muted playsinline webkit-playsinline></video>
     <img id="capturedImg" alt="Foto capturada">
-    <!-- Android intent input — triggered by openAndroidCamera() -->
-    <input type="file" id="androidCamInput" accept="image/*" capture="user"
-      style="display:none" onchange="handleAndroidCapture(event)">
     <div class="cam-controls">
-      <button class="btn btn-secondary btn-sm" id="btnCamera" onclick="openCamera()">📷 Abrir cámara</button>
-      <button class="btn btn-primary btn-sm" id="btnCapture" onclick="capturePhoto()" style="display:none">📸 Tomar foto</button>
-      <button class="btn btn-sm" id="btnRetake" onclick="retakePhoto()" style="display:none;background:var(--border)">↩ Repetir</button>
+      <button type="button" class="btn btn-secondary btn-sm" id="btnCamera" onclick="openCamera()">📷 Abrir cámara</button>
+      <label class="btn btn-secondary btn-sm file-cam" id="btnCameraFile">
+        📷 Abrir cámara
+        <input type="file" id="androidCamInput" accept="image/*" capture="user" onchange="handleAndroidCapture(event)">
+      </label>
+      <button type="button" class="btn btn-primary btn-sm" id="btnCapture" onclick="capturePhoto()" style="display:none">📸 Tomar foto</button>
+      <button type="button" class="btn btn-sm" id="btnRetake" onclick="retakePhoto()" style="display:none;background:var(--border)">↩ Repetir</button>
     </div>
     <p class="text-muted mt8" id="camHint"></p>
   </div>
@@ -377,22 +383,27 @@ let stream = null;
 let photoTaken = false;
 let photoBlob = null;
 
-// Detect Android to decide strategy
-const isAndroid = /android/i.test(navigator.userAgent);
-
-function openCamera() {
-  if (isAndroid) {
-    // Android intent: triggers native camera app (front-facing via capture="user")
-    document.getElementById('camHint').textContent =
-      '📱 Se abrirá la cámara de tu dispositivo. Toma la selfie y confirma.';
-    document.getElementById('androidCamInput').click();
-  } else {
-    // Desktop / iOS: use getUserMedia stream
-    startStream();
-  }
+function liveCameraAvailable() {
+  return !!(window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 }
 
-// Android intent result handler
+function showCameraLauncher() {
+  const live = liveCameraAvailable();
+  document.getElementById('btnCamera').style.display = live ? 'inline-block' : 'none';
+  document.getElementById('btnCameraFile').style.display = live ? 'none' : 'inline-block';
+}
+
+function openCamera() {
+  startStream();
+}
+
+function hideCameraLaunchers() {
+  document.getElementById('btnCamera').style.display = 'none';
+  document.getElementById('btnCameraFile').style.display = 'none';
+}
+
+// Android intent result handler. The input sits on top of the button so the
+// tap is a real user gesture; a hidden input.click() is ignored on Android 12.
 function handleAndroidCapture(event) {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
@@ -402,33 +413,33 @@ function handleAndroidCapture(event) {
   img.src = URL.createObjectURL(file);
   img.style.display = 'block';
   document.getElementById('selfieGuide').style.display = 'none';
-  document.getElementById('btnCamera').style.display = 'none';
+  hideCameraLaunchers();
   document.getElementById('btnRetake').style.display = 'inline-block';
   document.getElementById('camHint').textContent = '✅ Foto recibida';
   checkReadyToVerify();
-  // Reset input so same file can be re-selected after retake
   event.target.value = '';
 }
 
-// Desktop / iOS stream
 async function startStream() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false
     });
     const video = document.getElementById('videoPreview');
     video.srcObject = stream;
     video.style.display = 'block';
+    await video.play();
     document.getElementById('selfieGuide').style.display = 'none';
-    document.getElementById('btnCamera').style.display = 'none';
+    hideCameraLaunchers();
     document.getElementById('btnCapture').style.display = 'inline-block';
     document.getElementById('camHint').textContent = '';
   } catch(e) {
-    // getUserMedia failed — fall back to file input
+    document.getElementById('btnCamera').style.display = 'none';
+    document.getElementById('btnCameraFile').style.display = 'inline-block';
+    document.getElementById('androidCamInput').setAttribute('capture', 'user');
     document.getElementById('camHint').textContent =
-      '⚠️ No se pudo acceder a la cámara en vivo. Selecciona una foto.';
-    document.getElementById('androidCamInput').removeAttribute('capture');
-    document.getElementById('androidCamInput').click();
+      '⚠️ Toca otra vez «Abrir cámara» para usar la cámara del teléfono.';
   }
 }
 
@@ -460,9 +471,8 @@ function retakePhoto() {
   document.getElementById('btnCapture').style.display = 'none';
   document.getElementById('videoPreview').style.display = 'none';
   document.getElementById('selfieGuide').style.display = 'block';
-  document.getElementById('btnCamera').style.display = 'inline-block';
+  showCameraLauncher();
   document.getElementById('camHint').textContent = '';
-  // Re-apply capture="user" in case it was removed on fallback
   document.getElementById('androidCamInput').setAttribute('capture','user');
   if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
   checkReadyToVerify();
@@ -701,6 +711,7 @@ function renderReports() {
 }
 
 // ── Init ───────────────────────────────────────────────────
+showCameraLauncher();
 (async () => {
   // Check for claude.use availability
   try {
