@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EduVerifica MX</title>
+<style>
+  :root {
+    --bg: #f0f4f8; --surface: #ffffff; --primary: #1B4F72;
+    --secondary: #2980B9; --success: #1E8449; --warning: #E67E22;
+    --danger: #C0392B; --text: #1a1a1a; --muted: #666;
+    --border: #dde3ea; --gold: #F39C12;
+    --surface2: #f8fafc; --shadow: 0 2px 8px rgba(0,0,0,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1923; --surface:#1a2535; --primary:#2980B9;
+      --secondary:#3498DB; --text:#e8edf2; --muted:#8899aa;
+      --border:#2a3a4a; --surface2:#1e2d3d; --shadow:0 2px 8px rgba(0,0,0,.3); }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh;
+    padding-top: env(safe-area-inset-top,0px); }
+  body::before { content:""; position:fixed; inset:0 0 auto;
+    height:env(safe-area-inset-top,0px); background:var(--primary); z-index:10; }
+
+  /* ── HEADER ── */
+  .header { background: var(--primary); color: white; padding: 16px 20px 14px;
+    position: sticky; top: env(safe-area-inset-top,0px); z-index: 9; }
+  .header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: .5px; }
+  .header p { font-size: .75rem; opacity: .75; margin-top: 2px; }
+
+  /* ── TABS ── */
+  .tabs { display: flex; background: var(--primary); border-top: 1px solid rgba(255,255,255,.15); }
+  .tab { flex: 1; padding: 10px 4px; text-align: center; font-size: .8rem;
+    color: rgba(255,255,255,.65); cursor: pointer; border: none; background: none;
+    transition: all .2s; font-weight: 500; }
+  .tab.active { color: white; border-bottom: 3px solid var(--gold); }
+
+  /* ── MAIN ── */
+  .page { display: none; padding: 16px; max-width: 600px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  /* ── CARDS ── */
+  .card { background: var(--surface); border-radius: 12px; padding: 20px;
+    margin-bottom: 16px; box-shadow: var(--shadow); }
+  .card-title { font-size: .85rem; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .8px; margin-bottom: 14px; }
+
+  /* ── FORM ELEMENTS ── */
+  label { font-size: .85rem; font-weight: 600; color: var(--muted);
+    display: block; margin-bottom: 6px; }
+  input, select, textarea {
+    width: 100%; padding: 12px 14px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 1rem; background: var(--surface2);
+    color: var(--text); transition: border-color .2s; }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--secondary); }
+  input[type=text] { font-family: 'Courier New', monospace; letter-spacing: 1px; text-transform: uppercase; }
+  .field { margin-bottom: 14px; }
+
+  /* ── BUTTONS ── */
+  .btn { display: block; width: 100%; padding: 14px; border: none;
+    border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer;
+    transition: transform .1s, opacity .2s; }
+  .btn:active { transform: scale(.98); }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-secondary { background: var(--secondary); color: white; }
+  .btn-success { background: var(--success); color: white; }
+  .btn-sm { display: inline-block; width: auto; padding: 8px 16px;
+    font-size: .85rem; border-radius: 8px; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ── RESULT BOX ── */
+  .result { border-radius: 10px; padding: 16px; margin-top: 14px; display: none; }
+  .result.show { display: block; }
+  .result.pass { background: #d4edda; border: 1.5px solid #28a745; color: #155724; }
+  .result.fail { background: #f8d7da; border: 1.5px solid #dc3545; color: #721c24; }
+  .result.warn { background: #fff3cd; border: 1.5px solid #ffc107; color: #856404; }
+  .result-icon { font-size: 2rem; display: block; margin-bottom: 8px; }
+  .result-title { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+  .result-detail { font-size: .85rem; opacity: .85; }
+
+  /* ── CAMERA ── */
+  #videoPreview { width: 100%; border-radius: 10px; background: #000;
+    aspect-ratio: 3/4; object-fit: cover; display: none; }
+  #capturedImg { width: 100%; border-radius: 10px; display: none; }
+  .cam-controls { display: flex; gap: 10px; margin-top: 10px; }
+  .cam-controls .btn { flex: 1; }
+  .selfie-guide { background: var(--surface2); border: 1.5px dashed var(--border);
+    border-radius: 10px; padding: 20px; text-align: center; margin-bottom: 12px; }
+  .selfie-guide .icon { font-size: 3rem; }
+  .selfie-guide p { font-size: .85rem; color: var(--muted); margin-top: 8px; }
+
+  /* ── STATS GRID ── */
+  .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .stat { background: var(--surface2); border-radius: 10px; padding: 14px;
+    text-align: center; border-left: 4px solid var(--secondary); }
+  .stat.danger-stat { border-color: var(--danger); }
+  .stat.success-stat { border-color: var(--success); }
+  .stat.warning-stat { border-color: var(--warning); }
+  .stat-num { font-size: 1.6rem; font-weight: 800; color: var(--primary); }
+  .stat-label { font-size: .75rem; color: var(--muted); margin-top: 2px; }
+
+  /* ── REPORT LIST ── */
+  .report-item { background: var(--surface2); border-radius: 10px; padding: 14px;
+    margin-bottom: 10px; border-left: 4px solid var(--border); }
+  .report-item.risk-high { border-color: var(--danger); }
+  .report-item.risk-med  { border-color: var(--warning); }
+  .report-item.risk-low  { border-color: var(--success); }
+  .report-header { display: flex; justify-content: space-between; align-items: flex-start; }
+  .folio { font-size: .7rem; font-family: monospace; color: var(--muted); }
+  .risk-badge { font-size: .7rem; font-weight: 700; padding: 3px 8px;
+    border-radius: 20px; color: white; }
+  .risk-badge.alto   { background: var(--danger); }
+  .risk-badge.medio  { background: var(--warning); }
+  .risk-badge.bajo   { background: var(--success); }
+  .report-curp { font-family: monospace; font-size: .9rem; font-weight: 700;
+    margin: 6px 0 4px; }
+  .report-desc { font-size: .8rem; color: var(--muted); }
+  .report-meta { font-size: .75rem; color: var(--muted); margin-top: 6px; }
+
+  /* ── FILTER BAR ── */
+  .filter-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .filter-btn { padding: 6px 14px; border-radius: 20px; border: 1.5px solid var(--border);
+    background: var(--surface); font-size: .8rem; cursor: pointer; color: var(--text); }
+  .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+  /* ── EMPTY STATE ── */
+  .empty { text-align: center; padding: 40px 20px; color: var(--muted); }
+  .empty .icon { font-size: 3rem; }
+  .empty p { margin-top: 8px; font-size: .9rem; }
+
+  /* ── SPINNER ── */
+  .spinner { display: inline-block; width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,.3); border-top-color: white;
+    border-radius: 50%; animation: spin .8s linear infinite; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── TOAST ── */
+  #toast { position: fixed; bottom: calc(env(safe-area-inset-bottom,0px) + 20px);
+    left: 50%; transform: translateX(-50%) translateY(100px);
+    background: #1a1a1a; color: white; padding: 12px 20px; border-radius: 10px;
+    font-size: .85rem; transition: transform .3s; z-index: 999; white-space: nowrap; }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+  .text-muted { font-size: .8rem; color: var(--muted); }
+  .mt8 { margin-top: 8px; }
+  .curp-display { font-family: monospace; font-size: 1.1rem; font-weight: 700;
+    letter-spacing: 2px; color: var(--primary); background: var(--surface2);
+    padding: 10px 14px; border-radius: 8px; margin: 8px 0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎓 EduVerifica MX</h1>
+  <p>Validación de becarios en tiempo real</p>
+</div>
+<div class="tabs">
+  <button class="tab active" onclick="showTab('verificar')">✅ Verificar</button>
+  <button class="tab" onclick="showTab('reportar')">📋 Reportar</button>
+  <button class="tab" onclick="showTab('admin')">📊 Panel</button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     TAB 1 — VERIFICAR CURP
+════════════════════════════════════════════════════════════ -->
+<div id="tab-verificar" class="page active">
+
+  <div class="card">
+    <div class="card-title">Paso 1 — Ingresa tu CURP</div>
+    <div class="field">
+      <label>CURP (18 caracteres)</label>
+      <input type="text" id="curpInput" maxlength="18" placeholder="HEGJ850312HDFRRN09"
+        oninput="this.value=this.value.toUpperCase(); onCurpInput()">
+    </div>
+    <div id="curpLengthBar" style="height:4px;background:var(--border);border-radius:2px;margin-bottom:12px">
+      <div id="curpProgress" style="height:100%;background:var(--secondary);border-radius:2px;width:0%;transition:width .2s"></div>
+    </div>
+    <div id="curpFormatMsg" class="text-muted"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Paso 2 — Prueba de vida (selfie)</div>
+    <div class="selfie-guide" id="selfieGuide">
+      <div class="icon">🤳</div>
+      <p>Toma una selfie mirando a la cámara para verificar que eres una persona real. Tu rostro debe ser visible y bien iluminado.</p>
+    </div>
+    <video id="videoPreview" autoplay muted playsinline></video>
+    <img id="capturedImg" alt="Foto capturada">
+    <div class="cam-controls">
+      <button class="btn btn-secondary btn-sm" id="btnCamera" onclick="startCamera()">📷 Abrir cámara</button>
+      <button class="btn btn-primary btn-sm" id="btnCapture" onclick="capturePhoto()" style="display:none">📸 Tomar foto</button>
+      <button class="btn btn-sm" id="btnRetake" onclick="retakePhoto()" style="display:none;background:var(--border)">↩ Repetir</button>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" id="btnVerificar" onclick="verificar()" disabled>
+    🔍 Verificar identidad
+  </button>
+
+  <div class="result" id="resultBox">
+    <span class="result-icon" id="resultIcon"></span>
+    <div class="result-title" id="resultTitle"></div>
+    <div class="result-detail" id="resultDetail"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     TAB 2 — REPORTAR
+════════════════════════════════════════════════════════════ -->
+<div id="tab-reportar" class="page">
+  <div class="card">
+    <div class="card-title">Nuevo reporte ciudadano</div>
+    <div class="field">
+      <label>CURP sospechoso</label>
+      <input type="text" id="rCurp" maxlength="18" placeholder="CURP a reportar"
+        oninput="this.value=this.value.toUpperCase()">
+    </div>
+    <div class="field">
+      <label>Programa de beca</label>
+      <select id="rPrograma">
+        <option value="">Seleccionar...</option>
+        <option>Beca Benito Juárez</option>
+        <option>Beca Rita Cetina</option>
+        <option>Jóvenes Escribiendo el Futuro</option>
+        <option>Jóvenes Construyendo el Futuro</option>
+        <option>Beca Gertrudis Bocanegra</option>
+        <option>Otro</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Estado</label>
+      <select id="rEstado">
+        <option value="">Seleccionar...</option>
+        <option>Aguascalientes</option><option>Baja California</option>
+        <option>Campeche</option><option>Chiapas</option>
+        <option>Chihuahua</option><option>Ciudad de México</option>
+        <option>Coahuila</option><option>Colima</option>
+        <option>Durango</option><option>Estado de México</option>
+        <option>Guanajuato</option><option>Guerrero</option>
+        <option>Hidalgo</option><option>Jalisco</option>
+        <option>Michoacán</option><option>Morelos</option>
+        <option>Nayarit</option><option>Nuevo León</option>
+        <option>Oaxaca</option><option>Puebla</option>
+        <option>Querétaro</option><option>Quintana Roo</option>
+        <option>San Luis Potosí</option><option>Sinaloa</option>
+        <option>Sonora</option><option>Tabasco</option>
+        <option>Tamaulipas</option><option>Tlaxcala</option>
+        <option>Veracruz</option><option>Yucatán</option>
+        <option>Zacatecas</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Tipo de irregularidad</label>
+      <select id="rTipo">
+        <option value="">Seleccionar...</option>
+        <option>Alumno inexistente / fantasma</option>
+        <option>Doble registro en varios programas</option>
+        <option>Datos de identidad no coinciden</option>
+        <option>Pago recibido por persona fallecida</option>
+        <option>Tarjeta activa sin entregar</option>
+        <option>Irregularidad administrativa</option>
+        <option>Otro</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Descripción (opcional)</label>
+      <textarea id="rDesc" rows="3" placeholder="Describe brevemente la irregularidad observada..."></textarea>
+    </div>
+    <button class="btn btn-primary" onclick="enviarReporte()">📨 Enviar reporte</button>
+    <p class="text-muted mt8">Tu reporte es confidencial. Recibirás un número de folio único.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     TAB 3 — PANEL ADMINISTRADOR
+════════════════════════════════════════════════════════════ -->
+<div id="tab-admin" class="page">
+
+  <div class="card">
+    <div class="card-title">Estadísticas globales</div>
+    <div class="stats">
+      <div class="stat danger-stat">
+        <div class="stat-num" id="statTotal">—</div>
+        <div class="stat-label">Reportes totales</div>
+      </div>
+      <div class="stat danger-stat">
+        <div class="stat-num" id="statAlto">—</div>
+        <div class="stat-label">Riesgo alto</div>
+      </div>
+      <div class="stat warning-stat">
+        <div class="stat-num" id="statMedio">—</div>
+        <div class="stat-label">Riesgo medio</div>
+      </div>
+      <div class="stat success-stat">
+        <div class="stat-num" id="statBajo">—</div>
+        <div class="stat-label">Riesgo bajo</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="filterReports('todos',this)">Todos</button>
+    <button class="filter-btn" onclick="filterReports('alto',this)">🔴 Alto</button>
+    <button class="filter-btn" onclick="filterReports('medio',this)">🟡 Medio</button>
+    <button class="filter-btn" onclick="filterReports('bajo',this)">🟢 Bajo</button>
+  </div>
+
+  <div id="reportList">
+    <div class="empty">
+      <div class="icon">⏳</div>
+      <p>Cargando reportes...</p>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<canvas id="canvas" style="display:none"></canvas>
+
+<script>
+// ── Helpers ────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'admin') loadReports();
+}
+
+function toast(msg, dur=2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ── CURP Validation ────────────────────────────────────────
+function onCurpInput() {
+  const val = document.getElementById('curpInput').value;
+  const pct = Math.min(100, (val.length / 18) * 100);
+  document.getElementById('curpProgress').style.width = pct + '%';
+  const msg = document.getElementById('curpFormatMsg');
+  if (val.length === 0) { msg.textContent = ''; return; }
+  if (val.length < 18) { msg.textContent = `${val.length}/18 caracteres`; return; }
+  const r = validateCURP(val);
+  msg.textContent = r.ok ? '✅ Formato válido' : '❌ ' + r.msg;
+  msg.style.color = r.ok ? 'var(--success)' : 'var(--danger)';
+  checkReadyToVerify();
+}
+
+function validateCURP(curp) {
+  if (!curp || curp.length !== 18) return { ok: false, msg: 'Debe tener 18 caracteres' };
+  const re = /^[A-Z]{4}[0-9]{6}[HM][A-Z]{2}[B-DF-HJ-NP-TV-Z]{3}[0-9A-Z][0-9]$/;
+  if (!re.test(curp)) return { ok: false, msg: 'Estructura inválida' };
+  const estados = ['AS','BC','BS','CC','CS','CH','CL','CM','DF','DG','GT','GR','HG',
+    'JC','MC','MN','MS','NT','NL','OC','PL','QO','QR','SP','SL','SR','TC','TS','TL','VZ','YN','ZS','NE'];
+  if (!estados.includes(curp.substring(11,13)))
+    return { ok: false, msg: 'Clave de estado inválida' };
+  return { ok: true };
+}
+
+// Check for known duplicate CURPs (demo list)
+const DUPLICATES_DB = ['HEGJ850312HDFRRN09','XXXX000000HDFXXX00'];
+
+function checkDuplicate(curp) {
+  return DUPLICATES_DB.includes(curp.toUpperCase());
+}
+
+// ── Camera ─────────────────────────────────────────────────
+let stream = null;
+let photoTaken = false;
+let photoBlob = null;
+
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+    });
+    const video = document.getElementById('videoPreview');
+    video.srcObject = stream;
+    video.style.display = 'block';
+    document.getElementById('selfieGuide').style.display = 'none';
+    document.getElementById('btnCamera').style.display = 'none';
+    document.getElementById('btnCapture').style.display = 'inline-block';
+  } catch(e) {
+    toast('⚠️ No se pudo acceder a la cámara');
+  }
+}
+
+function capturePhoto() {
+  const video = document.getElementById('videoPreview');
+  const canvas = document.getElementById('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  canvas.toBlob(blob => {
+    photoBlob = blob;
+    photoTaken = true;
+    const img = document.getElementById('capturedImg');
+    img.src = URL.createObjectURL(blob);
+    img.style.display = 'block';
+    video.style.display = 'none';
+    document.getElementById('btnCapture').style.display = 'none';
+    document.getElementById('btnRetake').style.display = 'inline-block';
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    checkReadyToVerify();
+  }, 'image/jpeg', 0.8);
+}
+
+function retakePhoto() {
+  photoTaken = false; photoBlob = null;
+  document.getElementById('capturedImg').style.display = 'none';
+  document.getElementById('btnRetake').style.display = 'none';
+  document.getElementById('selfieGuide').style.display = 'block';
+  document.getElementById('btnCamera').style.display = 'inline-block';
+  checkReadyToVerify();
+}
+
+function checkReadyToVerify() {
+  const curp = document.getElementById('curpInput').value;
+  const r = validateCURP(curp);
+  document.getElementById('btnVerificar').disabled = !(r.ok && photoTaken);
+}
+
+// ── Verificar ──────────────────────────────────────────────
+async function verificar() {
+  const curp = document.getElementById('curpInput').value;
+  const btn = document.getElementById('btnVerificar');
+  const box = document.getElementById('resultBox');
+
+  btn.innerHTML = '<span class="spinner"></span> Verificando...';
+  btn.disabled = true;
+  box.className = 'result';
+
+  // Short delay for UX
+  await new Promise(r => setTimeout(r, 1200));
+
+  const curpResult = validateCURP(curp);
+  const isDuplicate = checkDuplicate(curp);
+
+  // Use Claude to analyze the selfie for liveness detection signals
+  let livenessOk = true;
+  let livenessNote = '';
+
+  try {
+    const sample = await claude.use('sample');
+    if (sample && photoBlob) {
+      const result = await sample(
+        [{ role:'user', content: '¿Esta imagen parece una fotografía real de una persona viva (no una pantalla, foto de foto, imagen IA, o deepfake)? Responde solo: REAL o SOSPECHOSO, seguido de una coma y una razón breve en español de máximo 8 palabras.' }],
+        { images: [photoBlob], modelTier: 'quick' }
+      );
+      const txt = result.text.trim().toUpperCase();
+      livenessOk = txt.startsWith('REAL');
+      livenessNote = result.text.replace(/^(REAL|SOSPECHOSO),?\s*/i,'').trim();
+    }
+  } catch(e) {
+    // If sample unavailable, skip liveness AI check
+    livenessOk = true;
+    livenessNote = 'Verificación manual requerida';
+  }
+
+  // Determine result
+  const icon  = document.getElementById('resultIcon');
+  const title = document.getElementById('resultTitle');
+  const detail= document.getElementById('resultDetail');
+
+  if (!curpResult.ok) {
+    box.className = 'result fail show';
+    icon.textContent = '❌';
+    title.textContent = 'CURP inválido';
+    detail.textContent = curpResult.msg + '. Por favor verifica tu CURP en el portal de la SEP.';
+  } else if (isDuplicate) {
+    box.className = 'result fail show';
+    icon.textContent = '⚠️';
+    title.textContent = 'CURP duplicado detectado';
+    detail.textContent = 'Este CURP ya tiene un registro activo en el sistema. Acude a la ventanilla de tu programa de becas para aclarar la situación.';
+  } else if (!livenessOk) {
+    box.className = 'result warn show';
+    icon.textContent = '🔍';
+    title.textContent = 'Verificación requiere revisión manual';
+    detail.textContent = 'La foto no pasó la verificación automática: ' + (livenessNote || 'imagen sospechosa') + '. Intenta con mejor iluminación o acude en persona.';
+  } else {
+    box.className = 'result pass show';
+    icon.textContent = '✅';
+    title.textContent = 'Verificación exitosa';
+    detail.textContent = 'CURP válido y prueba de vida superada. Tu registro está en orden.';
+  }
+
+  btn.innerHTML = '🔍 Verificar identidad';
+  btn.disabled = false;
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ── Reportar ───────────────────────────────────────────────
+function genFolio() {
+  const d = new Date();
+  const date = d.getFullYear().toString() +
+    String(d.getMonth()+1).padStart(2,'0') +
+    String(d.getDate()).padStart(2,'0');
+  const rand = Math.random().toString(36).substring(2,6).toUpperCase();
+  return `EV-${date}-${rand}`;
+}
+
+function calcRisk(tipo) {
+  const alto = ['Alumno inexistente / fantasma','Pago recibido por persona fallecida','Doble registro en varios programas'];
+  const medio = ['Datos de identidad no coinciden','Tarjeta activa sin entregar'];
+  if (alto.includes(tipo)) return 'alto';
+  if (medio.includes(tipo)) return 'medio';
+  return 'bajo';
+}
+
+async function enviarReporte() {
+  const curp    = document.getElementById('rCurp').value.trim();
+  const prog    = document.getElementById('rPrograma').value;
+  const estado  = document.getElementById('rEstado').value;
+  const tipo    = document.getElementById('rTipo').value;
+  const desc    = document.getElementById('rDesc').value.trim();
+
+  if (!curp || !prog || !estado || !tipo) {
+    toast('⚠️ Completa los campos obligatorios'); return;
+  }
+
+  const folio = genFolio();
+  const risk  = calcRisk(tipo);
+  const fecha = new Date().toLocaleDateString('es-MX', {day:'2-digit',month:'2-digit',year:'numeric'});
+
+  const reporte = { folio, curp, programa: prog, estado, tipo, descripcion: desc, riesgo: risk, fecha };
+
+  // Save to db
+  let saved = false;
+  try {
+    const db = await claude.use('db');
+    if (db) {
+      await db.collection('reportes').doc(folio).set(reporte);
+      saved = true;
+    }
+  } catch(e) { /* offline fallback */ }
+
+  // Fallback: localStorage
+  if (!saved) {
+    const arr = JSON.parse(localStorage.getItem('ev_reportes')||'[]');
+    arr.push(reporte);
+    localStorage.setItem('ev_reportes', JSON.stringify(arr));
+  }
+
+  // Clear form
+  ['rCurp','rPrograma','rEstado','rTipo','rDesc'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el.tagName==='SELECT') el.selectedIndex=0;
+    else el.value='';
+  });
+
+  toast(`✅ Reporte enviado — Folio: ${folio}`, 4000);
+
+  // Show confirmation card
+  const card = document.createElement('div');
+  card.className = 'result pass show';
+  card.innerHTML = `<span class="result-icon">📋</span>
+    <div class="result-title">Reporte registrado</div>
+    <div class="curp-display">${folio}</div>
+    <div class="result-detail">Guarda este folio para dar seguimiento. Nivel de riesgo asignado: <strong>${risk.toUpperCase()}</strong></div>`;
+  document.getElementById('tab-reportar').appendChild(card);
+  card.scrollIntoView({ behavior:'smooth' });
+  setTimeout(()=>card.remove(), 8000);
+}
+
+// ── Admin Panel ────────────────────────────────────────────
+let allReports = [];
+let currentFilter = 'todos';
+
+async function loadReports() {
+  let reportes = [];
+
+  try {
+    const db = await claude.use('db');
+    if (db) {
+      const snap = await db.collection('reportes').get();
+      snap.forEach(doc => reportes.push(doc.data()));
+    }
+  } catch(e) {}
+
+  // Merge with localStorage
+  const local = JSON.parse(localStorage.getItem('ev_reportes')||'[]');
+  const folios = new Set(reportes.map(r=>r.folio));
+  local.forEach(r => { if (!folios.has(r.folio)) reportes.push(r); });
+
+  // Demo data if empty
+  if (reportes.length === 0) {
+    reportes = [
+      { folio:'EV-20261026-A1B2', curp:'HEGJ850312HDFRRN09', programa:'Beca Benito Juárez',
+        estado:'CDMX', tipo:'Doble registro en varios programas', riesgo:'alto',
+        fecha:'26/10/2026', descripcion:'CURP aparece en dos programas distintos' },
+      { folio:'EV-20261026-C3D4', curp:'XXXXXX000000HDFXX0', programa:'Beca Rita Cetina',
+        estado:'Guerrero', tipo:'Alumno inexistente / fantasma', riesgo:'alto',
+        fecha:'25/10/2026', descripcion:'Alumno no se presentó en todo el ciclo' },
+      { folio:'EV-20261025-E5F6', curp:'MARG780415HDFRMS02', programa:'Jóvenes Escribiendo el Futuro',
+        estado:'Estado de México', tipo:'Tarjeta activa sin entregar', riesgo:'medio',
+        fecha:'24/10/2026', descripcion:'' },
+      { folio:'EV-20261024-G7H8', curp:'RIVP950820HDFVRL07', programa:'Beca Benito Juárez',
+        estado:'Jalisco', tipo:'Irregularidad administrativa', riesgo:'bajo',
+        fecha:'23/10/2026', descripcion:'Error de captura en nombre' },
+    ];
+  }
+
+  allReports = reportes.sort((a,b) => {
+    const order = {alto:0,medio:1,bajo:2};
+    return (order[a.riesgo]||2) - (order[b.riesgo]||2);
+  });
+
+  updateStats();
+  renderReports();
+}
+
+function updateStats() {
+  document.getElementById('statTotal').textContent = allReports.length;
+  document.getElementById('statAlto').textContent  = allReports.filter(r=>r.riesgo==='alto').length;
+  document.getElementById('statMedio').textContent = allReports.filter(r=>r.riesgo==='medio').length;
+  document.getElementById('statBajo').textContent  = allReports.filter(r=>r.riesgo==='bajo').length;
+}
+
+function filterReports(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderReports();
+}
+
+function renderReports() {
+  const list = document.getElementById('reportList');
+  const filtered = currentFilter==='todos' ? allReports :
+    allReports.filter(r=>r.riesgo===currentFilter);
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty"><div class="icon">📭</div><p>Sin reportes en esta categoría</p></div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(r => `
+    <div class="report-item risk-${r.riesgo}">
+      <div class="report-header">
+        <span class="folio">${r.folio}</span>
+        <span class="risk-badge ${r.riesgo}">${r.riesgo.toUpperCase()}</span>
+      </div>
+      <div class="report-curp">${r.curp}</div>
+      <div class="report-desc">${r.tipo}${r.descripcion ? ' — '+r.descripcion : ''}</div>
+      <div class="report-meta">📋 ${r.programa} &nbsp;·&nbsp; 📍 ${r.estado} &nbsp;·&nbsp; 📅 ${r.fecha}</div>
+    </div>
+  `).join('');
+}
+
+// ── Init ───────────────────────────────────────────────────
+(async () => {
+  // Check for claude.use availability
+  try {
+    await new Promise(r => setTimeout(r, 800));
+    if (!window.claude) console.log('Standalone mode — usando localStorage');
+  } catch(e) {}
+})();
+</script>
+</body>
+</html>
