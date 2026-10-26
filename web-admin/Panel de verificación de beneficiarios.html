@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Panel de verificación de beneficiarios</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f5f3f0;--surface:#fff;--ink:#1f1b1c;--muted:#6b6264;--line:#e2dcd8;--brand:#611232;--brand-ink:#fff;--gold:#a57f2c;
+--low:#2f7d4f;--low-bg:#e3f2e9;--mid:#9a6a00;--mid-bg:#fbefd0;--high:#b3261e;--high-bg:#fbe1de}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+--bg:#161213;--surface:#211b1d;--ink:#f1eceb;--muted:#a69b9d;--line:#392f32;--brand:#c4577f;--brand-ink:#1a0b11;--gold:#d3ad5a;
+--low:#6fcf97;--low-bg:#173424;--mid:#f2c14e;--mid-bg:#3a2e0e;--high:#ff8a80;--high-bg:#42191a}}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;font:15px/1.5 "Public Sans",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--brand);color:var(--brand-ink);padding:16px 20px;border-bottom:4px solid var(--gold)}
+header h1{margin:0;font-size:1.25rem;font-weight:700}
+header p{margin:2px 0 0;font-size:.85rem;opacity:.85}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 48px}
+h2{font-size:1.05rem;margin:28px 0 10px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);padding:12px 14px;border-radius:6px}
+.kpi b{display:block;font-size:1.7rem;line-height:1.2}
+.kpi span{color:var(--muted);font-size:.82rem}
+.kpi.high{border-left-color:var(--high)}.kpi.mid{border-left-color:var(--mid)}.kpi.ok{border-left-color:var(--low)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px}
+.dist{display:grid;gap:8px}
+.bar{display:grid;grid-template-columns:70px 1fr 40px;align-items:center;gap:10px;font-size:.88rem}
+.bar i{display:block;height:14px;border-radius:3px}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+input,select,button{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+input{flex:1;min-width:160px}
+button{cursor:pointer}
+button.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:600}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;min-width:640px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);font-size:.88rem;white-space:nowrap}
+th{color:var(--muted);font-weight:600;background:var(--bg)}
+tbody tr{cursor:pointer}tbody tr:hover{background:var(--bg)}
+.tag{display:inline-block;padding:2px 9px;border-radius:99px;font-size:.78rem;font-weight:600}
+.t-bajo{background:var(--low-bg);color:var(--low)}.t-medio{background:var(--mid-bg);color:var(--mid)}.t-alto{background:var(--high-bg);color:var(--high)}
+.mono{font-variant-numeric:tabular-nums;letter-spacing:.02em}
+dialog{border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);padding:20px;width:min(480px,92vw)}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+dialog h3{margin:0 0 4px}
+dialog ul{padding-left:18px;margin:8px 0}
+.row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+.log li{padding:8px 0;border-bottom:1px solid var(--line);list-style:none;font-size:.88rem}
+.log{padding:0;margin:0}
+.note{color:var(--muted);font-size:.8rem;margin-top:24px}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:6px;font-size:.88rem;display:none;max-width:90vw}
+</style>
+</head>
+<body>
+<header>
+  <h1>Panel de verificación de beneficiarios</h1>
+  <p>Vista de administrador · Prueba de vida y validación de CURP</p>
+</header>
+<main>
+  <section class="kpis" id="kpis" aria-label="Resumen"></section>
+
+  <h2>Distribución por nivel de riesgo</h2>
+  <div class="panel dist" id="dist"></div>
+
+  <h2>Casos verificados</h2>
+  <div class="tools">
+    <input id="q" type="search" placeholder="Buscar por folio o CURP" aria-label="Buscar por folio o CURP">
+    <select id="fr" aria-label="Filtrar por riesgo"><option value="">Todos los riesgos</option><option>Alto</option><option>Medio</option><option>Bajo</option></select>
+    <select id="fe" aria-label="Filtrar por resultado"><option value="">Todos los resultados</option><option>Con defecto</option><option>Aprobado</option></select>
+    <button class="primary" id="sim">Simular validación desde la app</button>
+  </div>
+  <div class="scroll"><table>
+    <thead><tr><th>Folio</th><th>CURP</th><th>Resultado en app</th><th>Riesgo</th><th>Puntaje</th><th>Fecha</th><th>Caso</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table></div>
+
+  <h2>Canal de reportes: notificaciones enviadas</h2>
+  <div class="panel"><ul class="log" id="log"><li style="color:var(--muted)">Aún no hay notificaciones. Abre un caso y elige “Notificar al beneficiario”.</li></ul></div>
+
+  <p class="note">Datos sintéticos de demostración. El puntaje de riesgo es una regla simple de ejemplo, no un modelo entrenado. La app móvil solo informa “aprobado” o “con defecto”; el nivel de riesgo es visible únicamente aquí.</p>
+</main>
+
+<dialog id="dlg"></dialog>
+<div id="toast" role="status"></div>
+
+<script>
+const SIG={curp:{l:"CURP con formato inválido",w:40},dup:{l:"Registro duplicado (misma persona, otro CURP o cuenta)",w:35},ia:{l:"Posible video o foto generado por IA",w:30},def:{l:"Coincidencia con acta de defunción",w:60},old:{l:"Sin prueba de vida en más de 90 días",w:15}};
+const MONTO=1900;
+let seed=42;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
+const L="ABCDEFGHIJKLMNOPQRSTUVWXYZ",pick=s=>s[Math.floor(rnd()*s.length)];
+const pad=(n,l)=>String(n).padStart(l,"0");
+let counter=0;const recs=[],notifs=[];
+function curp(){let s="";for(let i=0;i<4;i++)s+=pick(L);s+=pad(Math.floor(rnd()*99),2)+pad(1+Math.floor(rnd()*12),2)+pad(1+Math.floor(rnd()*28),2)+pick("HM");
+ for(let i=0;i<5;i++)s+=pick(L);return s+pick("0123456789")+pick("0123456789")}
+function make(daysAgo){
+  const sig=[];const r=rnd();
+  if(r<.06)sig.push("def");
+  if(rnd()<.08)sig.push("dup");
+  if(rnd()<.07)sig.push("ia");
+  if(rnd()<.05)sig.push("curp");
+  if(rnd()<.2)sig.push("old");
+  let score=Math.min(100,sig.reduce((a,k)=>a+SIG[k].w,0));
+  const d=new Date(2026,9,26);d.setDate(d.getDate()-daysAgo);
+  counter++;
+  return{folio:"FOL-2026-"+pad(counter,5),curp:curp(),sig,score,
+   riesgo:score>=60?"Alto":score>=30?"Medio":"Bajo",
+   res:sig.some(k=>["curp","dup","ia"].includes(k))?"Con defecto":"Aprobado",
+   fecha:d,caso:score>=30?"Abierto":"Sin acción"};
+}
+for(let i=0;i<48;i++)recs.push(make(Math.floor(rnd()*30)));
+recs.sort((a,b)=>b.fecha-a.fecha);
+
+const $=id=>document.getElementById(id);
+const mask=c=>c.slice(0,4)+"••••••••"+c.slice(-4);
+const fmt=d=>d.toLocaleDateString("es-MX",{day:"2-digit",month:"short"});
+const tag=r=>`<span class="tag t-${r.toLowerCase()}">${r}</span>`;
+
+function renderStats(){
+  const n=recs.length,alto=recs.filter(r=>r.riesgo==="Alto"),med=recs.filter(r=>r.riesgo==="Medio"),bajo=recs.filter(r=>r.riesgo==="Bajo");
+  $("kpis").innerHTML=
+   `<div class="kpi"><b>${n}</b><span>Validaciones recibidas</span></div>
+    <div class="kpi ok"><b>${recs.filter(r=>r.res==="Aprobado").length}</b><span>Aprobadas en la app</span></div>
+    <div class="kpi mid"><b>${recs.filter(r=>r.res==="Con defecto").length}</b><span>Con defecto</span></div>
+    <div class="kpi high"><b>${alto.length}</b><span>Casos de riesgo alto</span></div>
+    <div class="kpi high"><b>$${(alto.length*MONTO).toLocaleString("es-MX")}</b><span>Monto mensual en riesgo (ilustrativo)</span></div>`;
+  const row=(l,c,k)=>`<div class="bar"><span>${l}</span><i style="width:${n?c/n*100:0}%;background:var(--${k});min-width:2px"></i><b>${c}</b></div>`;
+  $("dist").innerHTML=row("Alto",alto.length,"high")+row("Medio",med.length,"mid")+row("Bajo",bajo.length,"low");
+}
+function renderRows(){
+  const q=$("q").value.trim().toUpperCase(),fr=$("fr").value,fe=$("fe").value;
+  const list=recs.filter(r=>(!q||r.folio.includes(q)||r.curp.includes(q))&&(!fr||r.riesgo===fr)&&(!fe||r.res===fe));
+  $("rows").innerHTML=list.length?list.map(r=>`<tr data-f="${r.folio}" tabindex="0"><td class="mono">${r.folio}</td><td class="mono">${mask(r.curp)}</td><td>${r.res}</td><td>${tag(r.riesgo)}</td><td>${r.score}</td><td>${fmt(r.fecha)}</td><td>${r.caso}</td></tr>`).join(""):`<tr><td colspan="7" style="color:var(--muted)">Ningún caso coincide con los filtros.</td></tr>`;
+}
+function openCase(f){
+  const r=recs.find(x=>x.folio===f);
+  $("dlg").innerHTML=`<h3>${r.folio}</h3><div class="mono" style="color:var(--muted)">${mask(r.curp)}</div>
+   <p>Riesgo ${tag(r.riesgo)} · Puntaje ${r.score}/100 · Resultado en app: <b>${r.res}</b></p>
+   <b>Señales detectadas</b>${r.sig.length?`<ul>${r.sig.map(k=>`<li>${SIG[k].l} (+${SIG[k].w})</li>`).join("")}</ul>`:`<p style="margin:4px 0;color:var(--muted)">Ninguna.</p>`}
+   <label>Estado del caso <select id="st">${["Sin acción","Abierto","En revisión","Suspendido","Resuelto"].map(s=>`<option ${s===r.caso?"selected":""}>${s}</option>`).join("")}</select></label>
+   <div class="row"><button id="cl">Cerrar</button><button class="primary" id="nt">Notificar al beneficiario</button></div>`;
+  $("dlg").showModal();
+  $("cl").onclick=()=>{r.caso=$("st").value;$("dlg").close();renderRows()};
+  $("nt").onclick=()=>{
+    r.caso=$("st").value==="Sin acción"?"En revisión":$("st").value;
+    const nf="NOT-"+r.folio.slice(4)+"-"+pad(notifs.length+1,2);
+    notifs.unshift({nf,r,hora:new Date()});
+    $("dlg").close();renderLog();renderRows();toast("Notificación "+nf+" enviada");
+  };
+}
+function renderLog(){
+  $("log").innerHTML=notifs.length?notifs.map(n=>`<li><b class="mono">${n.nf}</b> · caso ${n.r.folio} · ${tag(n.r.riesgo)} · ${n.r.res==="Con defecto"?"Se pide repetir la validación":"Se pide confirmar prueba de vida"}</li>`).join(""):"";
+}
+function toast(t){const e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display="none",2600)}
+$("rows").addEventListener("click",e=>{const tr=e.target.closest("tr[data-f]");if(tr)openCase(tr.dataset.f)});
+$("rows").addEventListener("keydown",e=>{if(e.key==="Enter"){const tr=e.target.closest("tr[data-f]");if(tr)openCase(tr.dataset.f)}});
+["q","fr","fe"].forEach(i=>$(i).addEventListener("input",renderRows));
+$("sim").onclick=()=>{const r=make(0);recs.unshift(r);renderStats();renderRows();toast("Nueva validación "+r.folio+" · riesgo "+r.riesgo)};
+renderStats();renderRows();
+</script>
+</body>
+</html>
